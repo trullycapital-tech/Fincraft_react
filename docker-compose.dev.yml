@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: fincraft-mongodb-dev
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: fincraft123
+      MONGO_INITDB_DATABASE: fincraft
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data_dev:/data/db
+    networks:
+      - fincraft-dev-network
+
+  # Backend API (Development)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fincraft-backend-dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 8001
+      MONGODB_URI: mongodb://admin:fincraft123@mongodb:27017/fincraft?authSource=admin
+      JWT_SECRET: dev_jwt_secret_key_not_for_production
+      JWT_EXPIRE: 24h
+      DEMO_MODE: true
+      CORS_ORIGIN: http://localhost:3000
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - backend_uploads_dev:/app/uploads
+    depends_on:
+      - mongodb
+    networks:
+      - fincraft-dev-network
+    command: npm run dev
+
+  # Frontend (Development)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: fincraft-frontend-dev
+    restart: unless-stopped
+    environment:
+      REACT_APP_BACKEND_URL: http://localhost:8001
+      CHOKIDAR_USEPOLLING: true
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - fincraft-dev-network
+    command: npm start
+
+volumes:
+  mongodb_data_dev:
+    driver: local
+  backend_uploads_dev:
+    driver: local
+
+networks:
+  fincraft-dev-network:
+    driver: bridge
