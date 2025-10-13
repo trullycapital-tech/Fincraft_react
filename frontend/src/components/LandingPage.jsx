@@ -54,14 +54,16 @@ const LandingPage = () => {
                 <p className="text-xs text-gray-500">Trully Capital Fintech</p>
               </div>
             </div>
-            <Button 
-              onClick={() => navigate("/pan-entry")}
-              className="bg-blue-600 hover:bg-blue-700"
-              data-testid="get-started-btn"
-            >
-              Get Started
-              <ArrowRight className="ml-2 w-4 h-4" />
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/pan-verification")}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Get Started
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -86,16 +88,17 @@ const LandingPage = () => {
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button 
                   size="lg" 
-                  onClick={() => navigate("/pan-entry")}
+                  onClick={() => navigate("/pan-verification")}
                   className="bg-blue-600 hover:bg-blue-700 text-lg px-8 py-4"
                   data-testid="hero-get-started-btn"
                 >
-                  Start Document Retrieval
+                  Get Started Now
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
                 <Button 
-                  variant="outline" 
+                  variant="outline"
                   size="lg"
+                  onClick={() => navigate("/learn-more")}
                   className="text-lg px-8 py-4 border-gray-300"
                 >
                   Learn More
@@ -114,7 +117,7 @@ const LandingPage = () => {
               </div>
             </div>
 
-            <div className="relative">
+            <div className="relative">                  
               <div className="glass-card p-8">
                 <img 
                   src="/banking-interface.png"
@@ -231,7 +234,7 @@ const LandingPage = () => {
               <Button 
                 size="lg" 
                 variant="secondary"
-                onClick={() => navigate("/pan-entry")}
+                onClick={() => navigate("/pan-verification")}
                 className="mt-8 bg-white text-blue-600 hover:bg-blue-50"
                 data-testid="cta-get-started-btn"
               >
@@ -262,7 +265,7 @@ const LandingPage = () => {
           </p>
           <Button 
             size="lg" 
-            onClick={() => navigate("/pan-entry")}
+            onClick={() => navigate("/pan-verification")}
             className="bg-blue-600 hover:bg-blue-700 text-lg px-8 py-4"
             data-testid="final-cta-btn"
           >

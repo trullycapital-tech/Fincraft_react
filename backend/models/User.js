@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
+  // Basic user information (no authentication)
   panNumber: {
     type: String,
     required: true,
@@ -21,6 +21,8 @@ const userSchema = new mongoose.Schema({
   },
   email: {
     type: String,
+    required: true,
+    unique: true,
     trim: true,
     lowercase: true,
     match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
@@ -115,20 +117,6 @@ userSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
   next();
 });
-
-// Generate access token
-userSchema.methods.generateAccessToken = function() {
-  const jwt = require('jsonwebtoken');
-  return jwt.sign(
-    { 
-      id: this._id, 
-      panNumber: this.panNumber,
-      holderName: this.holderName 
-    },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRE }
-  );
-};
 
 // Add CIBIL consent
 userSchema.methods.addCibilConsent = function(consentData) {
