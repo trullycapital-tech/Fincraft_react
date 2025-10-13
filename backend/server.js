@@ -13,7 +13,8 @@ const panRoutes = require('./routes/pan');
 const cibilRoutes = require('./routes/cibil'); // Fixed: was '../routes/cibil'
 const bankRoutes = require('./routes/bank');
 const documentRoutes = require('./routes/documents');
-const userRoutes = require('./routes/user');
+const loanRoutes = require('./routes/loans');
+const consentRoutes = require('./routes/consent');
 
 // Import middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -69,6 +70,9 @@ if (process.env.NODE_ENV === 'development') {
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Serve document files from root for demo/download compatibility
+app.use(express.static(path.join(__dirname, 'uploads/documents')));
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({
@@ -84,7 +88,8 @@ app.use('/api/pan', panRoutes);
 app.use('/api/cibil', cibilRoutes);
 app.use('/api/bank', bankRoutes);
 app.use('/api/documents', documentRoutes);
-app.use('/api/user', userRoutes);
+app.use('/api/loans', loanRoutes);
+app.use('/api/consent', consentRoutes);
 
 // Legacy routes for backward compatibility
 app.use('/api', panRoutes);

@@ -46,6 +46,15 @@ otpSchema.index({ "createdAt": 1 }, { expireAfterSeconds: 300 });
 
 // Instance method to verify OTP
 otpSchema.methods.verifyOTP = function(providedOTP) {
+  // Demo mode check
+  if (process.env.DEMO_MODE === 'true') {
+    const demoOtp = process.env.DEMO_OTP || '123456';
+    if (providedOTP === demoOtp) {
+      this.isVerified = true;
+      return this.save();
+    }
+  }
+
   if (this.attempts >= 3) {
     throw new Error('Maximum OTP attempts exceeded');
   }
@@ -70,6 +79,11 @@ otpSchema.methods.verifyOTP = function(providedOTP) {
 
 // Static method to generate OTP
 otpSchema.statics.generateOTP = function(length = 6) {
+  // Demo mode - return fixed OTP for easier testing
+  if (process.env.DEMO_MODE === 'true') {
+    return process.env.DEMO_OTP || '123456';
+  }
+  
   const digits = '0123456789';
   let otp = '';
   for (let i = 0; i < length; i++) {

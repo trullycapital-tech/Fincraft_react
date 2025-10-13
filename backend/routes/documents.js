@@ -1,3 +1,4 @@
+// (Move this after router is initialized)
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -9,10 +10,142 @@ const { v4: uuidv4 } = require('uuid');
 const router = express.Router();
 
 // Create uploads directory if it doesn't exist
-const uploadsDir = 'uploads/documents';
+const uploadsDir = path.join(__dirname, '../uploads/documents');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
+
+/**
+ * @route   GET /api/documents/:panNumber
+ * @desc    Get documents for a user (demo mode or real)
+ * @access  Public
+ */
+router.get('/:panNumber', optionalAuth, async (req, res) => {
+  try {
+    const { panNumber } = req.params;
+    // In demo mode, return static demo documents
+    if (process.env.DEMO_MODE === 'true') {
+      const now = new Date();
+      // List of demo files expected by frontend
+      const demoFiles = [
+        // HDFC
+        { fileName: 'HDFC_Statement_Oct2024.pdf', displayName: 'Statement of Account', bankName: 'HDFC Bank', documentType: 'statement_of_account', fileSize: '2.3 MB' },
+        { fileName: 'HDFC_RepaymentSchedule.pdf', displayName: 'Repayment Schedule', bankName: 'HDFC Bank', documentType: 'repayment_schedule', fileSize: '1.8 MB' },
+        // ICICI
+        { fileName: 'ICICI_Statement_Oct2024.pdf', displayName: 'Statement of Account', bankName: 'ICICI Bank', documentType: 'statement_of_account', fileSize: '1.9 MB' },
+        { fileName: 'ICICI_RepaymentSchedule.pdf', displayName: 'Repayment Schedule', bankName: 'ICICI Bank', documentType: 'repayment_schedule', fileSize: '1.5 MB' },
+        // YES Bank
+        { fileName: 'YES_Bank_statement_of_account.pdf', displayName: 'Statement of Account', bankName: 'YES Bank', documentType: 'statement_of_account', fileSize: '2.0 MB' },
+        { fileName: 'YES_Bank_repayment_schedule.pdf', displayName: 'Repayment Schedule', bankName: 'YES Bank', documentType: 'repayment_schedule', fileSize: '1.7 MB' },
+        // KOTAK Bank
+        { fileName: 'KOTAK_Bank_statement_of_account.pdf', displayName: 'Statement of Account', bankName: 'KOTAK Bank', documentType: 'statement_of_account', fileSize: '2.1 MB' },
+        { fileName: 'KOTAK_Bank_repayment_schedule.pdf', displayName: 'Repayment Schedule', bankName: 'KOTAK Bank', documentType: 'repayment_schedule', fileSize: '1.6 MB' },
+        { fileName: 'KOTAK_Bank_foreclosure_letter.pdf', displayName: 'Foreclosure Letter', bankName: 'KOTAK Bank', documentType: 'foreclosure_letter', fileSize: '0.8 MB' },
+        { fileName: 'KOTAK_Bank_sanction_letter.pdf', displayName: 'Sanction Letter', bankName: 'KOTAK Bank', documentType: 'sanction_letter', fileSize: '0.9 MB' },
+        // AXIS Bank
+        { fileName: 'AXIS_Bank_foreclosure_letter.pdf', displayName: 'Foreclosure Letter', bankName: 'AXIS Bank', documentType: 'foreclosure_letter', fileSize: '0.7 MB' },
+        { fileName: 'AXIS_Bank_sanction_letter.pdf', displayName: 'Sanction Letter', bankName: 'AXIS Bank', documentType: 'sanction_letter', fileSize: '0.8 MB' }
+      ];
+      // Ensure each file exists in uploads/documents, if not, create a minimal PDF
+      const demoDocs = demoFiles.map((f, idx) => {
+        const filePath = path.join(uploadsDir, f.fileName);
+        return {
+          documentId: `DOC_DEMO_${idx}`,
+          bankName: f.bankName,
+          documentType: f.documentType,
+          displayName: f.displayName,
+          status: fs.existsSync(filePath) ? 'ready' : 'missing',
+          fileName: f.fileName,
+          fileSize: f.fileSize,
+          generatedAt: now,
+          expiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+          downloadCount: 0,
+          canDownload: fs.existsSync(filePath),
+          download_url: `/api/documents/download/demo/${f.fileName}`
+        };
+      });
+      return res.json({ success: true, documents: demoDocs });
+    }
+// Add a download route for demo files
+router.get('/download/demo/:fileName', async (req, res) => {
+  try {
+    const { fileName } = req.params;
+    const filePath = path.join(uploadsDir, fileName);
+    // If file does not exist, copy a robust sample PDF
+    if (!fs.existsSync(filePath)) {
+      const samplePath = path.join(uploadsDir, 'Sample_Bank_Document.pdf');
+      if (fs.existsSync(samplePath)) {
+        fs.copyFileSync(samplePath, filePath);
+      } else {
+        return res.status(404).json({ success: false, message: 'Sample PDF not found on server.' });
+      }
+    }
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Cache-Control', 'no-cache');
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+    fileStream.on('error', (error) => {
+      console.error('File stream error:', error);
+      res.status(500).json({ success: false, message: 'Error downloading file' });
+    });
+  } catch (error) {
+    console.error('Demo document download error:', error);
+    res.status(500).json({ success: false, message: 'Failed to download document' });
+  }
+});
+    // Support HEAD requests for download existence check (browser compatibility)
+    router.head('/download/demo/:fileName', async (req, res) => {
+      try {
+        const { fileName } = req.params;
+        const filePath = path.join(uploadsDir, fileName);
+        if (!fs.existsSync(filePath)) {
+          // Generate dummy PDF if missing
+          const buildSimplePdfBuffer = (text) => {
+            const header = '%PDF-1.4\n%\u00e2\u00e3\u00cf\u00d3\n';
+            const obj1 = '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n';
+            const obj2 = '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n';
+            const obj4 = '4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n';
+            const content = `BT /F1 24 Tf 72 720 Td (${text.replace(/\)/g,'\\)')}) Tj ET`;
+            const stream = content;
+            const obj5 = `5 0 obj\n<< /Length ${Buffer.byteLength(stream, 'utf8')} >>\nstream\n${stream}\nendstream\nendobj\n`;
+            const obj3 = `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n`;
+            let body = '';
+            const offsets = [];
+            body += obj1; offsets.push(body.length - obj1.length);
+            body += obj2; offsets.push(body.length - obj2.length);
+            body += obj3; offsets.push(body.length - obj3.length);
+            body += obj4; offsets.push(body.length - obj4.length);
+            body += obj5; offsets.push(body.length - obj5.length);
+            const xrefStart = Buffer.byteLength(header + body, 'utf8');
+            let xref = 'xref\n0 6\n0000000000 65535 f \n';
+            let pos = header.length;
+            for (let off of offsets) {
+              xref += ('' + (pos + off)).padStart(10, '0') + ' 00000 n \n';
+            }
+            xref += ('' + (pos + body.length)).padStart(10, '0') + ' 00000 n \n';
+            const trailer = 'trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n' + (header.length + body.length) + '\n%%EOF';
+            return Buffer.from(header + body + xref + trailer, 'utf8');
+          };
+          const pdfBuffer = buildSimplePdfBuffer(fileName.replace(/_/g, ' '));
+          fs.writeFileSync(filePath, pdfBuffer);
+        }
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        res.setHeader('Cache-Control', 'no-cache');
+        res.status(200).end();
+      } catch (error) {
+        console.error('Demo document HEAD error:', error);
+        res.status(500).end();
+      }
+    });
+    // Real implementation: fetch from DB (not implemented here)
+    return res.status(501).json({ success: false, message: 'Not implemented' });
+  } catch (error) {
+    console.error('Error in GET /api/documents/:panNumber:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
 
 /**
  * @route   POST /api/retrieve-documents
