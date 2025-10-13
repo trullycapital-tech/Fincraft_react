@@ -245,8 +245,8 @@ const LandingPage = () => {
 
             <div className="relative">
               <img 
-                src="https://images.unsplash.com/photo-1563013544-824ae1b704d3?auto=format&fit=crop&w=600&q=80" 
-                alt="Professional banking"
+                src="%PUBLIC_URL%/assets/digital-marketing.png" 
+                alt="Digital marketing"
                 className="w-full rounded-lg shadow-2xl"
               />
             </div>
