@@ -244,8 +244,8 @@ const LandingPage = () => {
             </div>
 
             <div className="relative">
-              <img 
-                src="%PUBLIC_URL%/assets/digital-marketing.png" 
+              <img
+                src="/assets/digital-marketing.png"
                 alt="Digital marketing"
                 className="w-full rounded-lg shadow-2xl"
               />
