@@ -1,9 +1,8 @@
 name: Deploy Backend to AWS Elastic Beanstalk
-
 on:
   push:
     branches:
-      - main
+      - elastic-beanstalk-ec2
 
 jobs:
   build-and-deploy:
@@ -11,27 +10,19 @@ jobs:
 
     defaults:
       run:
-        working-directory: backend # run commands from the backend folder
+        # run commands from the backend folder so we only package backend contents
+        working-directory: backend
 
     steps:
-      - name: Checkout source
+      - name: Checkout Source
         uses: actions/checkout@v4
 
-      - name: Use Node.js 18
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
-      - name: Cache node modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            backend/node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('backend/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-
-      - name: Install dependencies
+      - name: Install Dependencies
         run: npm ci --prefer-offline --no-audit --no-fund
 
       - name: Build (if defined)
@@ -42,23 +33,24 @@ jobs:
             echo "No build script defined, skipping";
           fi
 
-      - name: Generate deployment package
+      - name: Generate deployment package (backend only)
         run: |
-          # create a zip package of the backend, excluding node_modules, git metadata and sensitive files
-          zip -r fincraft-backend.zip . -x "*.git*" "node_modules/*" ".env*" "uploads/*" "*.log" ".github/*" ".vscode/*"
+          # create zip of backend contents and write it to the repository root
+          zip -r ../nodejs-app-build.zip . -x "node_modules/*" "*.git*" ".github/*" ".vscode/*" ".env*" "uploads/*" "*.log"
 
       - name: Show package info
         run: ls -lh fincraft-backend.zip || true
 
+
       - name: Deploy to Elastic Beanstalk
         uses: einaregilsson/beanstalk-deploy@v21
         with:
+          # prefer the canonical secret names used elsewhere in this repo
           aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           application_name: "fincraft-backend"
           environment_name: "Fincraft-backend-env"
-          # include run number and short sha so each deployment version is unique
-          version_label: v-${{ github.run_number }}-${{ github.sha }}
+          version_label: ${{ github.sha }}
           region: ${{ secrets.AWS_REGION }}
-          # the zip is created inside the `backend` working-directory, so point to that path
+          # zip is at repository root (one level up from backend working dir)
           deployment_package: backend/fincraft-backend.zip
