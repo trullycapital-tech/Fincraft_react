@@ -33,14 +33,14 @@ jobs:
             echo "No build script defined, skipping";
           fi
 
+
       - name: Generate deployment package (backend only)
         run: |
-          # create zip of backend contents and write it to the repository root
-          zip -r ../nodejs-app-build.zip . -x "node_modules/*" "*.git*" ".github/*" ".vscode/*" ".env*" "uploads/*" "*.log"
+          # create zip of backend contents inside backend folder with exact filename
+          zip -r Fincract_Backend_zip.zip . -x "node_modules/*" "*.git*" ".github/*" ".vscode/*" ".env*" "uploads/*" "*.log"
 
       - name: Show package info
-        run: ls -lh fincraft-backend.zip || true
-
+        run: ls -lh Fincract_Backend_zip.zip || true
 
       - name: Deploy to Elastic Beanstalk
         uses: einaregilsson/beanstalk-deploy@v21
@@ -52,5 +52,5 @@ jobs:
           environment_name: "Fincraft-backend-env"
           version_label: ${{ github.sha }}
           region: ${{ secrets.AWS_REGION }}
-          # zip is at repository root (one level up from backend working dir)
-          deployment_package: backend/fincraft-backend.zip
+          # zip is created inside backend; reference it by repo-relative path
+          deployment_package: backend/Fincract_Backend_zip.zip
