@@ -2,7 +2,8 @@ name: Deploy Backend to AWS Elastic Beanstalk
 on:
   push:
     branches:
-      - elastic-beanstalk-ec2
+      - main
+
 
 jobs:
   build-and-deploy:
