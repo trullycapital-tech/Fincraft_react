@@ -1,40 +1,65 @@
 name: Deploy Backend to AWS Elastic Beanstalk
 
 on:
-  push:
-    branches:
-      - main
+	push:
+		branches:
+			- main
 
 jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
+	build-and-deploy:
+		runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: backend  # your backend folder
+		defaults:
+			run:
+				working-directory: backend  # run commands from the backend folder
 
-    steps:
-      - name: Checkout Source
-        uses: actions/checkout@v4
+		steps:
+			- name: Checkout source
+				uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
+			- name: Use Node.js 18
+				uses: actions/setup-node@v4
+				with:
+					node-version: 18
 
-      - name: Install Dependencies
-        run: npm install
+			- name: Cache node modules
+				uses: actions/cache@v4
+				with:
+					path: |
+						backend/node_modules
+					key: ${{ runner.os }}-node-${{ hashFiles('backend/package-lock.json') }}
+					restore-keys: |
+						${{ runner.os }}-node-
 
-      - name: Generate Deployment Package
-        run: zip -r fincraft-backend.zip . -x "*.git*" "node_modules/*"
+			- name: Install dependencies
+				run: npm ci --prefer-offline --no-audit --no-fund
 
-      - name: Deploy to Elastic Beanstalk
-        uses: einaregilsson/beanstalk-deploy@v21
-        with:
-          aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          application_name: 'fincraft-backend'
-          environment_name: 'Fincraft-backend-env'
-          version_label: v-${{ github.run_number }}
-          region: ${{ secrets.AWS_REGION }}
-          deployment_package: fincraft-backend.zip
+			- name: Build (if defined)
+				run: |
+					if npm run | grep -q "build"; then
+						npm run build;
+					else
+						echo "No build script defined, skipping";
+					fi
+
+			- name: Generate deployment package
+				run: |
+					# create a zip package of the backend, excluding node_modules, git metadata and sensitive files
+					zip -r fincraft-backend.zip . -x "*.git*" "node_modules/*" ".env*" "uploads/*" "*.log" ".github/*" ".vscode/*"
+
+			- name: Show package info
+				run: ls -lh fincraft-backend.zip || true
+
+			- name: Deploy to Elastic Beanstalk
+				uses: einaregilsson/beanstalk-deploy@v21
+				with:
+					aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+					aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+					application_name: 'fincraft-backend'
+					environment_name: 'Fincraft-backend-env'
+					# include run number and short sha so each deployment version is unique
+					version_label: v-${{ github.run_number }}-${{ github.sha }}
+					region: ${{ secrets.AWS_REGION }}
+					# the zip is created inside the `backend` working-directory, so point to that path
+					deployment_package: backend/fincraft-backend.zip
+
