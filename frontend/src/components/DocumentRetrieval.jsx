@@ -59,28 +59,34 @@ const DocumentRetrieval = () => {
 
   const initiateConsentProcess = async () => {
     setIsProcessing({ consent: true });
-    
+
     try {
-      const tokens = {};
-      
-      for (const loan of selectedLoans) {
-        const response = await axios.post(`${API}/request-consent`, {
+      // Fire all consent requests in parallel to reduce total latency
+      const requests = selectedLoans.map((loan) =>
+        axios.post(`${API}/request-consent`, {
           account_id: loan.id,
-          pan_number: panNumber
-        });
-        
-        if (response.data.consent_token) {
-          tokens[loan.id] = response.data;
+          pan_number: panNumber,
+        }).then(res => ({ loanId: loan.id, data: res.data }))
+          .catch(err => ({ loanId: loan.id, error: err }))
+      );
+
+      const results = await Promise.allSettled(requests);
+
+      const tokens = {};
+      results.forEach((r) => {
+        if (r.status === 'fulfilled' && r.value && r.value.data && r.value.data.consent_token) {
+          tokens[r.value.loanId] = r.value.data;
+        } else if (r.status === 'fulfilled' && r.value && r.value.error) {
+          console.warn(`Consent request failed for loan ${r.value.loanId}`, r.value.error);
+        } else if (r.status === 'rejected') {
+          console.warn('Consent request promise rejected', r.reason);
         }
-        
-        // Simulate delay between bank requests
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-      
+      });
+
       setConsentTokens(tokens);
       setRetrievalStage("otp");
       toast.success("Consent requests sent to all banks!");
-      
+
     } catch (error) {
       console.error("Consent process error:", error);
       toast.error("Failed to initiate consent process");
@@ -170,6 +176,43 @@ const DocumentRetrieval = () => {
     } catch (error) {
       console.error("Download error:", error.response ? error.response.data : error.message);
       toast.error("Failed to download document");
+    }
+  };
+
+  const handleView = async (doc) => {
+    // Open a blank window synchronously to avoid popup blocking in some browsers.
+    const newWindow = window.open('', '_blank');
+    if (!newWindow) {
+      toast.error('Popup blocked. Please allow popups for this site to view the document.');
+      return;
+    }
+
+    try {
+      // backend serves the file stream at doc.download_url; request as arraybuffer
+      const url = `${BACKEND_URL}${doc.download_url}`;
+      const response = await axios.get(url, { responseType: 'arraybuffer' });
+
+      // Create blob and navigate the previously opened window to the blob URL
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const urlObj = window.URL.createObjectURL(blob);
+
+      try {
+        newWindow.location.href = urlObj;
+        newWindow.focus();
+      } catch (navErr) {
+        // If for some reason navigation fails, close the window and throw
+        try { newWindow.close(); } catch (e) {}
+        window.URL.revokeObjectURL(urlObj);
+        throw navErr;
+      }
+
+      // Revoke the object URL after a minute to give the user time to view
+      setTimeout(() => window.URL.revokeObjectURL(urlObj), 60000);
+    } catch (error) {
+      console.error("View error:", error.response ? error.response.data : error.message);
+      toast.error("Failed to open document");
+      // Close the blank window we opened earlier if still open
+      try { newWindow.close(); } catch (e) {}
     }
   };
 
@@ -443,7 +486,7 @@ const DocumentRetrieval = () => {
                                   >
                                     <Download className="w-4 h-4" />
                                   </Button>
-                                  <Button size="sm" variant="outline">
+                                  <Button size="sm" variant="outline" onClick={() => handleView(doc)} data-testid={`view-${doc.file_name}`}>
                                     <Eye className="w-4 h-4" />
                                   </Button>
                                 </div>
