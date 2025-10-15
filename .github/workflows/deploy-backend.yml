@@ -33,8 +33,8 @@ jobs:
         with:
           aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          application_name: ${{ secrets.EB_APP_NAME }}
-          environment_name: ${{ secrets.EB_ENV_NAME }}
+          application_name: 'fincraft-backend'
+          environment_name: 'Fincraft-backend-env'
           version_label: v-${{ github.run_number }}
           region: ${{ secrets.AWS_REGION }}
           deployment_package: fincraft-backend.zip
